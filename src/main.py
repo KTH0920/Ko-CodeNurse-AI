@@ -12,6 +12,13 @@ from dotenv import load_dotenv
 import openai
 from src.rag_connector import get_relevant_documents_with_content
 from src.router import classify_domain, DomainType
+from src.prompts import (
+    get_nursing_system_prompt,
+    get_coding_system_prompt,
+    get_research_system_prompt,
+    format_user_prompt_with_context,
+    format_user_prompt_without_context
+)
 
 # 환경 변수 로드
 load_dotenv()
@@ -57,49 +64,49 @@ class HealthResponse(BaseModel):
     message: str
 
 
-def generate_nursing_answer(query: str, context_documents: List[dict]) -> str:
+def generate_answer_by_domain(
+    query: str,
+    domain: DomainType,
+    context_documents: List[dict]
+) -> str:
     """
-    간호 전문가 페르소나로 답변을 생성합니다.
+    도메인에 따라 적절한 전문가 페르소나로 답변을 생성합니다.
     
     Args:
         query: 사용자 질문
-        context_documents: RAG 검색 결과 문서 리스트
+        domain: 분류된 도메인 (NURSING, CODING, RESEARCH)
+        context_documents: RAG 검색 결과 문서 리스트 (CODING일 경우 빈 리스트)
     
     Returns:
         생성된 답변
     """
     if not OPENAI_API_KEY:
         # API 키가 없을 경우 기본 답변 반환
-        return f"질문: {query}\n\n검색된 문서를 기반으로 답변을 생성하려면 OPENAI_API_KEY 환경 변수를 설정해주세요."
+        return f"질문: {query}\n\n답변을 생성하려면 OPENAI_API_KEY 환경 변수를 설정해주세요."
     
-    # 컨텍스트 문서를 텍스트로 변환
-    context_text = "\n\n".join([
-        f"[출처: {doc['metadata'].get('source', 'Unknown')}, 페이지: {doc['metadata'].get('page', 'N/A')}]\n{doc['content']}"
-        for doc in context_documents
-    ])
+    # 도메인에 따라 시스템 프롬프트 선택
+    if domain == "NURSING":
+        system_prompt = get_nursing_system_prompt()
+    elif domain == "CODING":
+        system_prompt = get_coding_system_prompt()
+    elif domain == "RESEARCH":
+        system_prompt = get_research_system_prompt()
+    else:
+        # 기본값으로 간호 전문가 사용
+        system_prompt = get_nursing_system_prompt()
     
-    # 간호 전문가 페르소나 프롬프트
-    system_prompt = """당신은 경험이 풍부한 간호 전문가입니다. 
-사용자의 질문에 대해 제공된 문서를 기반으로 정확하고 실용적인 답변을 제공하세요.
-답변은 한국어로 작성하고, 간호 실무에 바로 적용할 수 있는 구체적인 내용을 포함하세요.
-답변은 친절하고 전문적인 톤으로 작성하세요."""
-    
-    user_prompt = f"""다음 문서를 참고하여 질문에 답변해주세요.
-
-[참고 문서]
-{context_text}
-
-[질문]
-{query}
-
-[답변]"""
+    # 컨텍스트 문서가 있으면 포함, 없으면 질문만 전달
+    if context_documents:
+        user_prompt = format_user_prompt_with_context(query, context_documents)
+    else:
+        user_prompt = format_user_prompt_without_context(query)
     
     try:
         # OpenAI API 호출
         client = openai.OpenAI(api_key=OPENAI_API_KEY)
         
         response = client.chat.completions.create(
-            model="gpt-4o-mini",  # 또는 "gpt-3.5-turbo", "gpt-4" 등
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
@@ -144,28 +151,34 @@ async def generate_answer(request: GenerateRequest):
         # 1. 도메인 분류 수행
         domain = classify_domain(request.query)
         
-        # 2. 실제 RAG 검색 수행
-        context_documents = get_relevant_documents_with_content(request.query, k=3)
+        # 2. RAG 검색 분기: NURSING과 RESEARCH일 때만 RAG 검색 수행
+        context_documents = []
+        if domain in ["NURSING", "RESEARCH"]:
+            # NURSING과 RESEARCH 도메인일 때만 도메인별 RAG 검색 수행
+            context_documents = get_relevant_documents_with_content(request.query, domain=domain, k=3)
+            
+            if not context_documents:
+                raise HTTPException(
+                    status_code=404,
+                    detail="검색 결과가 없습니다. 벡터 저장소가 비어있거나 질문과 관련된 문서가 없습니다."
+                )
+        # CODING 도메인일 때는 RAG 검색을 건너뛰고 context_documents는 빈 리스트로 유지
         
-        if not context_documents:
-            raise HTTPException(
-                status_code=404,
-                detail="검색 결과가 없습니다. 벡터 저장소가 비어있거나 질문과 관련된 문서가 없습니다."
-            )
-        
-        # 3. LLM을 사용하여 답변 생성
-        # TODO: 도메인에 따라 다른 페르소나/프롬프트 사용 (현재는 간호 전문가로 통일)
-        answer = generate_nursing_answer(request.query, context_documents)
+        # 3. 도메인에 따라 적절한 전문가 페르소나로 답변 생성
+        answer = generate_answer_by_domain(request.query, domain, context_documents)
         
         # 4. 출처 정보를 API 형식으로 변환
-        sources = [
-            {
-                "source": doc["metadata"].get("source", "Unknown"),
-                "page": doc["metadata"].get("page", None),
-                "relevance_score": doc.get("score", None)
-            }
-            for doc in context_documents
-        ]
+        sources = []
+        if context_documents:
+            sources = [
+                {
+                    "source": doc["metadata"].get("source", "Unknown"),
+                    "page": doc["metadata"].get("page", None),
+                    "relevance_score": doc.get("score", None)
+                }
+                for doc in context_documents
+            ]
+        # CODING 도메인일 때는 sources가 빈 리스트
         
         return GenerateResponse(
             answer=answer,

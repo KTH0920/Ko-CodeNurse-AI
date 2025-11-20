@@ -12,12 +12,13 @@ import os
 
 # 하드코딩된 설정값
 EMBEDDING_MODEL_NAME = "snunlp/KR-SCoS-NLI-KLUE-STS"
-VECTOR_STORE_PATH = "vector_store"
+VECTOR_STORE_BASE_PATH = "vector_store"
 
 
 # 전역 변수로 모델과 저장소 캐싱
 _embedding_model: Optional[HuggingFaceEmbeddings] = None
-_vector_store: Optional[Chroma] = None
+# 도메인별 벡터 저장소 캐싱 (도메인명을 키로 사용)
+_vector_stores: Dict[str, Chroma] = {}
 
 
 def load_embedding_model() -> HuggingFaceEmbeddings:
@@ -40,10 +41,13 @@ def load_embedding_model() -> HuggingFaceEmbeddings:
     return _embedding_model
 
 
-def load_vector_store() -> Chroma:
+def load_vector_store(domain: str) -> Chroma:
     """
-    ChromaDB 벡터 저장소를 로드합니다.
-    저장소는 전역 변수에 캐싱되어 재사용됩니다.
+    도메인별 ChromaDB 벡터 저장소를 로드합니다.
+    저장소는 전역 딕셔너리에 도메인별로 캐싱되어 재사용됩니다.
+    
+    Args:
+        domain: 도메인 이름 (예: "NURSING", "RESEARCH")
     
     Returns:
         Chroma 벡터 저장소 객체
@@ -51,40 +55,52 @@ def load_vector_store() -> Chroma:
     Raises:
         FileNotFoundError: 벡터 저장소가 존재하지 않는 경우
     """
-    global _vector_store
+    global _vector_stores
     
-    if _vector_store is None:
-        # 벡터 저장소 경로 확인
-        if not os.path.exists(VECTOR_STORE_PATH) or not os.listdir(VECTOR_STORE_PATH):
-            raise FileNotFoundError(
-                f"벡터 저장소를 찾을 수 없습니다: {VECTOR_STORE_PATH}\n"
-                f"먼저 rag_integration.py를 실행하여 벡터 저장소를 생성해주세요."
-            )
-        
-        # 임베딩 모델 로드
-        embeddings = load_embedding_model()
-        
-        # 기존 벡터 저장소 로드
-        _vector_store = Chroma(
-            persist_directory=VECTOR_STORE_PATH,
-            embedding_function=embeddings
+    # 도메인명을 소문자로 변환하여 경로 생성
+    domain_lower = domain.lower()
+    vector_store_path = os.path.join(VECTOR_STORE_BASE_PATH, domain_lower)
+    
+    # 이미 로드된 저장소가 있으면 반환
+    if domain_lower in _vector_stores:
+        return _vector_stores[domain_lower]
+    
+    # 벡터 저장소 경로 확인
+    if not os.path.exists(vector_store_path) or not os.listdir(vector_store_path):
+        raise FileNotFoundError(
+            f"벡터 저장소를 찾을 수 없습니다: {vector_store_path}\n"
+            f"먼저 rag_integration.py를 수정하여 {domain} 도메인용 벡터 저장소를 생성해주세요.\n"
+            f"참고: 도메인별 저장소는 'vector_store/{domain_lower}/' 경로에 생성되어야 합니다."
         )
     
-    return _vector_store
+    # 임베딩 모델 로드 (전역에서 공유)
+    embeddings = load_embedding_model()
+    
+    # 도메인별 벡터 저장소 로드
+    vector_store = Chroma(
+        persist_directory=vector_store_path,
+        embedding_function=embeddings
+    )
+    
+    # 캐싱
+    _vector_stores[domain_lower] = vector_store
+    
+    return vector_store
 
 
-def get_relevant_documents(query: str, k: int = 3) -> List[tuple]:
+def get_relevant_documents(query: str, domain: str, k: int = 3) -> List[tuple]:
     """
-    벡터 저장소에서 질문과 관련된 문서를 검색합니다.
+    도메인별 벡터 저장소에서 질문과 관련된 문서를 검색합니다.
     
     Args:
         query: 검색 질문
+        domain: 도메인 이름 (예: "NURSING", "RESEARCH")
         k: 반환할 문서 개수 (기본값: 3)
     
     Returns:
         (Document, score) 튜플의 리스트
     """
-    vector_store = load_vector_store()
+    vector_store = load_vector_store(domain)
     results = vector_store.similarity_search_with_score(query, k=k)
     return results
 
@@ -116,20 +132,21 @@ def convert_to_api_format(search_results: List[tuple]) -> List[Dict]:
     return sources
 
 
-def get_relevant_documents_with_content(query: str, k: int = 3) -> List[Dict]:
+def get_relevant_documents_with_content(query: str, domain: str, k: int = 3) -> List[Dict]:
     """
-    벡터 저장소에서 질문과 관련된 문서를 검색하고, 
+    도메인별 벡터 저장소에서 질문과 관련된 문서를 검색하고, 
     내용과 메타데이터를 포함한 딕셔너리 리스트로 반환합니다.
     
     Args:
         query: 검색 질문
+        domain: 도메인 이름 (예: "NURSING", "RESEARCH")
         k: 반환할 문서 개수 (기본값: 3)
     
     Returns:
         문서 내용과 메타데이터를 포함한 딕셔너리 리스트
         각 딕셔너리는 content, metadata, score를 포함합니다.
     """
-    results = get_relevant_documents(query, k)
+    results = get_relevant_documents(query, domain, k)
     
     documents = []
     for doc, score in results:

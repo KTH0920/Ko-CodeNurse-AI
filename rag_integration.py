@@ -1,6 +1,15 @@
 """
 RAG 시스템 통합 및 테스트 스크립트
 KoSimCSE 임베딩 모델과 ChromaDB를 사용하여 벡터 저장소를 구축하고 검색을 테스트합니다.
+
+⚠️ 중요: 도메인별 저장소 분리
+이 스크립트를 실행하기 전에, 도메인별 벡터 저장소를 생성하도록 수정해야 합니다.
+현재 FastAPI 백엔드는 도메인별로 분리된 저장소를 사용합니다:
+- NURSING 도메인: vector_store/nursing/
+- RESEARCH 도메인: vector_store/research/
+
+따라서 이 스크립트를 수정하여 각 도메인별로 별도의 벡터 저장소를 생성하도록 해야 합니다.
+예를 들어, 간호 관련 문서는 vector_store/nursing/에, 연구 관련 문서는 vector_store/research/에 저장해야 합니다.
 """
 
 from langchain_community.embeddings import HuggingFaceEmbeddings
