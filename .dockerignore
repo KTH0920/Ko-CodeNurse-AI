@@ -1,0 +1,53 @@
+# Docker 빌드 최적화를 위한 .dockerignore 파일
+
+# 벡터 저장소 (볼륨으로 마운트되므로 제외)
+vector_store/
+
+# 환경 변수 파일 (보안상 제외)
+.env
+.env.*
+
+# Python 캐시
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# 테스트 디렉토리 (빌드에 불필요)
+tests/
+test/
+*_test.py
+*_tests.py
+
+# Git 관련
+.git/
+.gitignore
+.gitattributes
+
+# IDE 관련
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 문서 및 기타
+*.md
+!README.md
+docs/
+*.log
+
+# Docker 관련
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# CI/CD 관련
+.github/
+
+# 기타 임시 파일
+*.tmp
+*.bak
+*.cache
+
