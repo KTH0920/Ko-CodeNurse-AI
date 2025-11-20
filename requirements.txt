@@ -1,0 +1,5 @@
+langchain
+langchain-community
+chromadb
+sentence-transformers
+pypdf # PDF 문서 로드를 위한 라이브러리
