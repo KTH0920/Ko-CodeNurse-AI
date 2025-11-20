@@ -1,6 +1,11 @@
 langchain
 langchain-community
+langchain-openai
 chromadb
 sentence-transformers
 pypdf # PDF 문서 로드를 위한 라이브러리
 streamlit # 웹 인터페이스
+fastapi # API 프레임워크
+uvicorn[standard] # ASGI 서버
+openai # OpenAI API 클라이언트
+python-dotenv # 환경 변수 관리
