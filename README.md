@@ -67,3 +67,63 @@ docker run -d \
 ```bash
 -v $(pwd)/vector_store:/app/vector_store
 ```
+
+## Docker Compose를 사용한 통합 배포
+
+### 전체 시스템 실행
+
+Docker Compose를 사용하면 백엔드와 프론트엔드를 한 번에 실행할 수 있습니다:
+
+```bash
+# .env 파일 생성 (필수)
+echo "OPENAI_API_KEY=your_openai_api_key_here" > .env
+
+# 모든 서비스 빌드 및 실행
+docker-compose up -d
+
+# 로그 확인
+docker-compose logs -f
+
+# 서비스 중지
+docker-compose down
+```
+
+### 서비스 접속
+
+- **프론트엔드**: http://localhost:8501
+- **백엔드 API**: http://localhost:8000
+- **API 문서**: http://localhost:8000/docs
+
+### 환경 변수 설정
+
+`.env` 파일에 다음 환경 변수를 설정하세요:
+
+```bash
+OPENAI_API_KEY=your_openai_api_key_here
+```
+
+Docker Compose는 자동으로 다음을 설정합니다:
+- `FASTAPI_API_URL=http://backend:8000` (프론트엔드에서 백엔드 호출용)
+
+### 볼륨 마운트
+
+`vector_store` 디렉토리는 로컬 파일 시스템에 마운트되어 데이터가 영구 보존됩니다:
+
+```yaml
+volumes:
+  - ./vector_store:/app/vector_store
+```
+
+### 개별 서비스 관리
+
+```bash
+# 백엔드만 재시작
+docker-compose restart backend
+
+# 프론트엔드만 재시작
+docker-compose restart frontend
+
+# 특정 서비스 로그 확인
+docker-compose logs backend
+docker-compose logs frontend
+```
