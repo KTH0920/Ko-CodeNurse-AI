@@ -4,3 +4,4 @@ chromadb
 sentence-transformers
 pypdf # PDF 문서 로드를 위한 라이브러리
 streamlit # 웹 인터페이스
+requests # HTTP 요청 라이브러리
