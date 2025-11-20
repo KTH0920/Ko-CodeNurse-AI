@@ -6,20 +6,47 @@ FastAPI 백엔드와 통합된 간호 지식 검색 및 답변 생성 애플리�
 import streamlit as st
 import requests
 import json
+import os
 from typing import Optional, Dict, List
 
 
-def call_fastapi_generate(query: str, api_url: str = "http://localhost:8000/api/generate") -> Optional[Dict]:
+def get_api_url() -> str:
+    """
+    환경 변수에서 FastAPI API URL을 가져옵니다.
+    환경 변수가 설정되지 않은 경우 기본값을 반환합니다.
+    
+    Returns:
+        FastAPI API URL
+    """
+    api_url = os.getenv("FASTAPI_API_URL", "http://localhost:8000")
+    # URL에 /api/generate가 포함되어 있지 않으면 추가
+    if not api_url.endswith("/api/generate"):
+        api_url = api_url.rstrip("/") + "/api/generate"
+    return api_url
+
+
+def get_health_check_url() -> str:
+    """
+    환경 변수에서 FastAPI Health Check URL을 가져옵니다.
+    
+    Returns:
+        FastAPI Health Check URL
+    """
+    api_base_url = os.getenv("FASTAPI_API_URL", "http://localhost:8000")
+    return api_base_url.rstrip("/") + "/health"
+
+
+def call_fastapi_generate(query: str) -> Optional[Dict]:
     """
     FastAPI 백엔드의 /api/generate 엔드포인트를 호출합니다.
     
     Args:
         query: 사용자 질문
-        api_url: FastAPI 엔드포인트 URL
     
     Returns:
         API 응답 딕셔너리 (answer, sources, domain) 또는 None
     """
+    api_url = get_api_url()
     try:
         response = requests.post(
             api_url,
@@ -124,14 +151,19 @@ def main():
         st.markdown("### 🔗 API 상태")
         # API 서버 상태 확인
         try:
-            health_response = requests.get("http://localhost:8000/health", timeout=5)
+            health_url = get_health_check_url()
+            health_response = requests.get(health_url, timeout=5)
             if health_response.status_code == 200:
                 st.success("✅ API 서버 연결됨")
+                # 환경 변수가 설정된 경우 표시
+                api_base_url = os.getenv("FASTAPI_API_URL", "http://localhost:8000")
+                st.caption(f"연결: {api_base_url}")
             else:
                 st.warning("⚠️ API 서버 응답 이상")
         except:
             st.error("❌ API 서버 연결 실패")
-            st.info("💡 FastAPI 서버를 시작하려면:\n`uvicorn src.main:app --reload`")
+            api_base_url = os.getenv("FASTAPI_API_URL", "http://localhost:8000")
+            st.info(f"💡 FastAPI 서버를 시작하려면:\n`uvicorn src.main:app --reload`\n\n현재 설정된 URL: {api_base_url}")
     
     # 사용자 입력 영역
     st.markdown("### 💬 질문 입력")
