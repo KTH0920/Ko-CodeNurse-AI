@@ -5,7 +5,7 @@ KoSimCSE 임베딩 모델과 ChromaDB를 사용하여 벡터 저장소를 구축
 
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
-from langchain.schema import Document
+from langchain_core.documents import Document
 from typing import List
 import os
 from rag_setup import load_and_split_pdf

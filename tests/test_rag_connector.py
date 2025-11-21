@@ -7,7 +7,7 @@ import pytest
 import os
 import tempfile
 import shutil
-from langchain.schema import Document
+from langchain_core.documents import Document
 from langchain_community.vectorstores import Chroma
 from src.rag_connector import (
     load_embedding_model,

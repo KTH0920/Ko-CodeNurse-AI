@@ -5,7 +5,7 @@ KoSimCSE 임베딩 모델과 ChromaDB를 사용한 실제 RAG 검색 기능 제�
 
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
-from langchain.schema import Document
+from langchain_core.documents import Document
 from typing import List, Dict, Optional
 import os
 
