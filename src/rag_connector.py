@@ -11,7 +11,7 @@ import os
 
 
 # 하드코딩된 설정값
-EMBEDDING_MODEL_NAME = "snunlp/KR-SCoS-NLI-KLUE-STS"
+EMBEDDING_MODEL_NAME = "BM-K/KoSimCSE-roberta-multitask"  # 한국어 임베딩 모델
 VECTOR_STORE_BASE_PATH = "vector_store"
 
 

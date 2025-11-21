@@ -11,12 +11,12 @@ import os
 from rag_setup import load_and_split_pdf
 
 
-def load_embedding_model(model_name: str = "snunlp/KR-SCoS-NLI-KLUE-STS"):
+def load_embedding_model(model_name: str = "BM-K/KoSimCSE-roberta-multitask"):
     """
     KoSimCSE 임베딩 모델을 로드합니다.
     
     Args:
-        model_name: HuggingFace 모델 이름 (기본값: snunlp/KR-SCoS-NLI-KLUE-STS)
+        model_name: HuggingFace 모델 이름 (기본값: BM-K/KoSimCSE-roberta-multitask)
     
     Returns:
         HuggingFaceEmbeddings 객체
