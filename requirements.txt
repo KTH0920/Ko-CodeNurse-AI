@@ -12,3 +12,4 @@ openai # OpenAI API 클라이언트
 python-dotenv # 환경 변수 관리
 pytest # 테스트 프레임워크
 pytest-cov # 테스트 커버리지
+httpx # FastAPI TestClient를 위한 HTTP 클라이언트
