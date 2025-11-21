@@ -2,6 +2,7 @@ langchain
 langchain-core
 langchain-community
 langchain-openai
+langchain-text-splitters
 chromadb
 sentence-transformers
 pypdf # PDF 문서 로드를 위한 라이브러리

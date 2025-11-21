@@ -4,7 +4,7 @@ PDF 문서를 로드하고 청크로 분할하는 기능을 제공합니다.
 """
 
 from langchain_community.document_loaders import PyPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from typing import List
 import os
