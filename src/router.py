@@ -3,40 +3,26 @@
 사용자 질문을 NURSING, CODING, RESEARCH 중 하나로 분류합니다.
 """
 
-from langchain.prompts import PromptTemplate
-from langchain_openai import ChatOpenAI
 from typing import Literal
-import os
-from dotenv import load_dotenv
-
-# 환경 변수 로드
-load_dotenv()
+import re
+from src.local_llm_connector import generate_response
 
 # 도메인 타입 정의
 DomainType = Literal["NURSING", "CODING", "RESEARCH"]
-
-# OpenAI API 키 확인
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 
 def classify_domain(query: str) -> DomainType:
     """
     사용자 질문을 도메인으로 분류합니다.
-    LLM을 사용하여 NURSING, CODING, RESEARCH 중 하나를 반환합니다.
+    로컬 LLM을 사용하여 NURSING, CODING, RESEARCH 중 하나를 반환합니다.
     
     Args:
         query: 사용자 질문
     
     Returns:
         분류된 도메인 (NURSING, CODING, RESEARCH)
-    
-    Raises:
-        ValueError: API 키가 없거나 LLM 호출 실패 시
     """
-    if not OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.")
-    
-    # 도메인 분류 프롬프트
+    # 도메인 분류 프롬프트 (KoAlpaca 형식)
     classification_prompt = """당신은 사용자의 질문을 다음 세 가지 도메인 중 하나로 분류하는 전문가입니다:
 
 1. NURSING: 간호, 의료, 환자 케어, 건강 관리, 간호 실무, 의학적 절차 등과 관련된 질문
@@ -46,35 +32,31 @@ def classify_domain(query: str) -> DomainType:
 사용자 질문을 분석하여 가장 적합한 도메인을 선택하세요.
 반드시 다음 중 하나만 정확히 반환하세요: NURSING, CODING, RESEARCH
 
-질문: {query}
+### 질문:
+{query}
 
-도메인:"""
+### 답변:
+""".format(query=query)
 
     try:
-        # OpenAI LLM 사용
-        llm = ChatOpenAI(
-            model="gpt-4o-mini",
-            temperature=0,  # 분류는 일관성을 위해 temperature 0 사용
-            api_key=OPENAI_API_KEY
-        )
+        # 로컬 LLM 호출 (temperature=0으로 일관성 확보)
+        response = generate_response(classification_prompt, max_length=50, temperature=0)
         
-        # 프롬프트 생성
-        prompt = PromptTemplate(
-            template=classification_prompt,
-            input_variables=["query"]
-        )
+        # 응답에서 도메인 추출 (대문자 변환 및 정규화)
+        response_upper = response.strip().upper()
         
-        # LLM 호출
-        response = llm.invoke(prompt.format(query=query))
-        
-        # 응답에서 도메인 추출
-        domain = response.content.strip().upper()
-        
-        # 유효한 도메인인지 확인
+        # 유효한 도메인 키워드 찾기
         valid_domains = ["NURSING", "CODING", "RESEARCH"]
-        if domain not in valid_domains:
-            # 응답이 정확하지 않을 경우 기본값으로 NURSING 반환
-            print(f"⚠️ 경고: 예상치 못한 도메인 응답 '{domain}'. 기본값 NURSING으로 설정합니다.")
+        domain = None
+        
+        for valid_domain in valid_domains:
+            if valid_domain in response_upper:
+                domain = valid_domain
+                break
+        
+        # 도메인을 찾지 못한 경우 기본값으로 NURSING 반환
+        if domain is None:
+            print(f"⚠️ 경고: 예상치 못한 도메인 응답 '{response}'. 기본값 NURSING으로 설정합니다.")
             return "NURSING"
         
         return domain

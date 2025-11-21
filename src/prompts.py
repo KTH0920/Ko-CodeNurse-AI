@@ -69,6 +69,7 @@ def get_research_system_prompt() -> str:
 def format_user_prompt_with_context(query: str, context_documents: List[Dict]) -> str:
     """
     컨텍스트 문서를 포함한 사용자 프롬프트를 생성합니다.
+    KoAlpaca 모델 형식에 맞게 포매팅합니다.
     
     Args:
         query: 사용자 질문
@@ -78,7 +79,11 @@ def format_user_prompt_with_context(query: str, context_documents: List[Dict]) -
         포맷된 사용자 프롬프트
     """
     if not context_documents:
-        return f"[질문]\n{query}\n\n[답변]"
+        return f"""### 질문:
+{query}
+
+### 답변:
+"""
     
     # 컨텍스트 문서를 텍스트로 변환
     context_text = "\n\n".join([
@@ -91,15 +96,17 @@ def format_user_prompt_with_context(query: str, context_documents: List[Dict]) -
 [참고 문서]
 {context_text}
 
-[질문]
+### 질문:
 {query}
 
-[답변]"""
+### 답변:
+"""
 
 
 def format_user_prompt_without_context(query: str) -> str:
     """
     컨텍스트 없이 사용자 프롬프트를 생성합니다.
+    KoAlpaca 모델 형식에 맞게 포매팅합니다.
     
     Args:
         query: 사용자 질문
@@ -107,8 +114,9 @@ def format_user_prompt_without_context(query: str) -> str:
     Returns:
         포맷된 사용자 프롬프트
     """
-    return f"""[질문]
+    return f"""### 질문:
 {query}
 
-[답변]"""
+### 답변:
+"""
 

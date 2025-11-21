@@ -9,7 +9,6 @@ from pydantic import BaseModel
 from typing import List
 import os
 from dotenv import load_dotenv
-import openai
 from src.rag_connector import get_relevant_documents_with_content
 from src.router import classify_domain, DomainType
 from src.prompts import (
@@ -19,6 +18,7 @@ from src.prompts import (
     format_user_prompt_with_context,
     format_user_prompt_without_context
 )
+from src.local_llm_connector import generate_response
 
 # 환경 변수 로드
 load_dotenv()
@@ -38,11 +38,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# OpenAI API 키 확인
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    print("⚠️ 경고: OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.")
 
 
 # 요청/응답 모델 정의
@@ -71,6 +66,7 @@ def generate_answer_by_domain(
 ) -> str:
     """
     도메인에 따라 적절한 전문가 페르소나로 답변을 생성합니다.
+    로컬 LLM을 사용하여 답변을 생성합니다.
     
     Args:
         query: 사용자 질문
@@ -80,10 +76,6 @@ def generate_answer_by_domain(
     Returns:
         생성된 답변
     """
-    if not OPENAI_API_KEY:
-        # API 키가 없을 경우 기본 답변 반환
-        return f"질문: {query}\n\n답변을 생성하려면 OPENAI_API_KEY 환경 변수를 설정해주세요."
-    
     # 도메인에 따라 시스템 프롬프트 선택
     if domain == "NURSING":
         system_prompt = get_nursing_system_prompt()
@@ -102,20 +94,27 @@ def generate_answer_by_domain(
         user_prompt = format_user_prompt_without_context(query)
     
     try:
-        # OpenAI API 호출
-        client = openai.OpenAI(api_key=OPENAI_API_KEY)
+        # KoAlpaca 형식으로 프롬프트 구성
+        full_prompt = f"""{system_prompt}
+
+{user_prompt}"""
         
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            temperature=0.7,
-            max_tokens=1000
+        # 로컬 LLM 호출
+        response = generate_response(
+            full_prompt,
+            max_length=512,
+            temperature=0.7
         )
         
-        answer = response.choices[0].message.content
+        # 응답에서 답변 부분만 추출 (### 답변: 이후의 내용)
+        if "### 답변:" in response:
+            answer = response.split("### 답변:")[-1].strip()
+        elif "답변:" in response:
+            answer = response.split("답변:")[-1].strip()
+        else:
+            # 형식이 맞지 않으면 전체 응답 반환
+            answer = response.strip()
+        
         return answer
     
     except Exception as e:
